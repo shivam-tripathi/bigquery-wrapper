@@ -1,0 +1,30 @@
+{
+  "name": "bigquery-wrapper",
+  "version": "0.0.1",
+  "description": "A wrapper around gcloud bigquery",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akshendra/bigquery-wrapper.git"
+  },
+  "keywords": [
+    "meta",
+    "js",
+    "bigquery"
+  ],
+  "author": "Akshendra Pratap Singh",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/akshendra/bigquery-wrapper/issues"
+  },
+  "homepage": "https://github.com/akshendra/bigquery-wrapper#readme",
+  "dependencies": {
+    "@akshendra/misc": "github:akshendra/utils#0.0.2",
+    "@akshendra/service": "github:akshendra/service-base#0.0.2",
+    "@akshendra/validator": "github:akshendra/validator#0.0.2",
+    "@google-cloud/bigquery": "^1.0.0"
+  }
+}
