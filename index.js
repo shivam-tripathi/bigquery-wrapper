@@ -154,7 +154,7 @@ class BigQuery {
    */
   getTable(datasetName, tableName) {
     const table = this.tables[`${datasetName}.${tableName}`];
-    if (table) {
+    if (!table) {
       throw new ReferenceError(`Table "<${tableName}>" not found in "<${datasetName}>"`);
     }
     return table;
