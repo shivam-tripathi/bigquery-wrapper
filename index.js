@@ -52,11 +52,7 @@ class BigQuery {
       email: this.config.credentials ? this.config.credentials.client_email : 'n/a',
       method: this.config.credentials ? 'PrivateKey' : 'KeyFile',
     });
-    const { projectId, keyFilename } = this.config;
-    const client = bq({
-      projectId,
-      keyFilename,
-    });
+    const client = bq(this.config);
     return client.getDatasets().then(() => {
       this.client = client;
       this.success(`Successfully connected on project ${this.config.projectId}`);
