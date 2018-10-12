@@ -204,7 +204,7 @@ class BigQuery {
       if (result.errors) {
         throw new Error(result.message);
       } else {
-        this.log.info(`Query Successful: ${rawQuery}`);
+        this.log(`Query Successful: ${rawQuery}`);
         return rows;
       }
     }).catch((e) => {
