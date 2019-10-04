@@ -1,6 +1,6 @@
 {
   "name": "@akshendra/bigquery",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "description": "A wrapper around gcloud bigquery",
   "main": "index.js",
   "scripts": {
