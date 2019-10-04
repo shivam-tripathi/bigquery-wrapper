@@ -1,29 +1,45 @@
 
 const bq = require('@google-cloud/bigquery');
-const Service = require('@akshendra/service');
-const { validate, joi } = require('@akshendra/validator');
-const { is } = require('@akshendra/misc');
 
 
 /**
  * @class BigQuery
  */
-class BigQuery extends Service {
+class BigQuery {
   /**
    * @param {string} name - unique name to this service
    * @param {EventEmitter} emitter
    * @param {Object} config - configuration object of service
    */
   constructor(name, emitter, config) {
-    super(name, emitter, config);
-
-    this.config = validate(config, joi.object().keys({
-      projectId: joi.string().required(),
-      keyFilename: joi.string(),
-    }));
+    this.emitter = emitter;
+    this.name = name;
+    this.config = config;
     this.client = null;
     this.datasets = {};
     this.tables = {};
+  }
+
+  log(message, data) {
+    this.emitter.emit('log', {
+      service: this.name,
+      message,
+      data,
+    });
+  }
+
+  success(message, data) {
+    this.emitter.emit('success', {
+      service: this.name, message, data,
+    });
+  }
+
+  error(err, data) {
+    this.emitter.emit('error', {
+      service: this.name,
+      data,
+      err,
+    });
   }
 
 
@@ -31,17 +47,15 @@ class BigQuery extends Service {
    * Initialize the config for connecting to google apis
    */
   init() {
-    this.emitInfo('connecting', 'On google cloud', {
+    this.log('Using config', {
       projectId: this.config.projectId,
+      email: this.config.credentials ? this.config.credentials.client_email : 'n/a',
+      method: this.config.credentials ? 'PrivateKey' : 'KeyFile',
     });
-    const { projectId, keyFilename } = this.config;
-    const client = bq({
-      projectId,
-      keyFilename,
-    });
+    const client = bq(this.config);
     return client.getDatasets().then(() => {
       this.client = client;
-      this.emitSuccess(`Successfully connected on project ${this.config.projectId}`);
+      this.success(`Successfully connected on project ${this.config.projectId}`);
       return this;
     });
   }
@@ -55,20 +69,18 @@ class BigQuery extends Service {
    * @return {Object} the dataset
    */
   createDataSet(datasetName) {
-    this.log.info('Creating dataset', {
-      datasetName,
-    });
+    this.log(`Creating dataset ${datasetName}`);
     const dataset = this.client.dataset(datasetName);
     return dataset.exists().then(result => {
       return result[0];
     }).then(exists => {
       if (exists === false) {
         return dataset.create().then(() => {
-          this.emitSuccess(`Dataset "${datasetName}" created`);
+          this.success(`Dataset "${datasetName}" created`);
           return true;
         });
       }
-      this.emitSuccess(`Dataset "${datasetName}" already exists`);
+      this.success(`Dataset "${datasetName}" already exists`);
       return true;
     }).then(() => {
       this.datasets[datasetName] = dataset;
@@ -87,7 +99,7 @@ class BigQuery extends Service {
    */
   getDataset(datasetName) {
     const dataset = this.datasets[datasetName];
-    if (is.not.existy(dataset)) {
+    if (!dataset) {
       throw new ReferenceError(`Dataset "${datasetName}" not found`);
     }
     return dataset;
@@ -105,28 +117,24 @@ class BigQuery extends Service {
    * @return {boolean}
    */
   createTable(datasetName, tableName, schema = null) {
-    this.log.info('Creating table', {
-      datasetName,
-      tableName,
-      schema,
-    });
+    this.log(`Creating table ${tableName} in ${datasetName}`);
     // check if table exists
     const dataset = this.getDataset(datasetName);
     const table = dataset.table(tableName);
     return table.exists().then(result => {
       return result[0];
     }).then(exists => {
-      if (exists === false && is.not.existy(schema)) {
+      if (exists === false && !schema) {
         throw new ReferenceError(`"${datasetName}.${tableName}" does not exists and no schema was given`);
       }
-      if (exists === false && is.exist(schema)) {
+      if (exists === false && schema) {
         const options = { schema };
         return table.create(options).then(() => {
-          this.emitSuccess(`Table "${datasetName}.${tableName}" created`);
+          this.success(`Table "${datasetName}.${tableName}" created`);
           return true;
         });
       }
-      this.emitSuccess(`Table "${datasetName}.${tableName}" already exists`);
+      this.success(`Table "${datasetName}.${tableName}" already exists`);
       return true;
     }).then(() => {
       this.tables[`${datasetName}.${tableName}`] = table;
@@ -146,7 +154,7 @@ class BigQuery extends Service {
    */
   getTable(datasetName, tableName) {
     const table = this.tables[`${datasetName}.${tableName}`];
-    if (is.not.existy(table)) {
+    if (!table) {
       throw new ReferenceError(`Table "<${tableName}>" not found in "<${datasetName}>"`);
     }
     return table;
@@ -196,7 +204,7 @@ class BigQuery extends Service {
       if (result.errors) {
         throw new Error(result.message);
       } else {
-        this.log.info(`Query Successful: ${rawQuery}`);
+        this.log(`Query Successful: ${rawQuery}`);
         return rows;
       }
     }).catch((e) => {
