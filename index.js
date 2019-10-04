@@ -222,10 +222,7 @@ class BigQuery extends Service {
       maximumBillingTier,
     };
 
-    return this.client.createQueryStream(options).then(result => {
-      const job = result[0];
-      return job.getQueryResults();
-    });
+    return this.client.createQueryStream(options);
   }
 
 
