@@ -1,5 +1,5 @@
 
-const { BigQuery: bq } = require('@google-cloud/bigquery');
+const { BigQuery: BQ } = require('@google-cloud/bigquery');
 
 
 /**
@@ -52,7 +52,7 @@ class BigQuery {
       email: this.config.credentials ? this.config.credentials.client_email : 'n/a',
       method: this.config.credentials ? 'PrivateKey' : 'KeyFile',
     });
-    const client = bq(this.config);
+    const client = new BQ(this.config);
     return client.getDatasets().then(() => {
       this.client = client;
       this.success(`Successfully connected on project ${this.config.projectId}`);
