@@ -1,5 +1,5 @@
 
-const bq = require('@google-cloud/bigquery');
+const { BigQuery: bq } = require('@google-cloud/bigquery');
 
 
 /**
