@@ -4,6 +4,7 @@
   "description": "A wrapper around gcloud bigquery",
   "main": "index.js",
   "scripts": {
+    "compile": "npx tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -25,6 +26,7 @@
     "@akshendra/misc": "github:akshendra/utils#0.0.2",
     "@akshendra/service": "github:akshendra/service-base#0.0.2",
     "@akshendra/validator": "github:akshendra/validator#0.0.2",
-    "@google-cloud/bigquery": "4.4.0"
-  }
+    "@google-cloud/bigquery": "5.6.0"
+  },
+  "devDependencies": {}
 }

@@ -1,17 +1,26 @@
 
-const { BigQuery: BQ } = require('@google-cloud/bigquery');
-
+import { BigQuery as BQ, BigQueryOptions, Dataset, InsertRowsResponse, Job, Query, QueryOptions, QueryRowsResponse, Table } from '@google-cloud/bigquery';
+import { CreateOptions, Metadata } from '@google-cloud/common/build/src/service-object';
+import EventEmitter from 'events';
+import { CredentialBody } from 'google-auth-library';
 
 /**
  * @class BigQuery
  */
 class BigQuery {
+  emitter: EventEmitter;
+  name: string;
+  config: BigQueryOptions;
+  client: BQ;
+  datasets: Record<string, Dataset>;
+  tables: Record<string, Table>;
+
   /**
    * @param {string} name - unique name to this service
    * @param {EventEmitter} emitter
    * @param {Object} config - configuration object of service
    */
-  constructor(name, emitter, config) {
+  constructor(name: string, emitter: EventEmitter, config: BigQueryOptions) {
     this.emitter = emitter;
     this.name = name;
     this.config = config;
@@ -20,7 +29,7 @@ class BigQuery {
     this.tables = {};
   }
 
-  log(message, data) {
+  log(message: string, data?: Record<string, unknown>) {
     this.emitter.emit('log', {
       service: this.name,
       message,
@@ -28,13 +37,13 @@ class BigQuery {
     });
   }
 
-  success(message, data) {
+  success(message: string, data?: Record<string, unknown>) {
     this.emitter.emit('success', {
       service: this.name, message, data,
     });
   }
 
-  error(err, data) {
+  error(err: Error, data?: Record<string, unknown>) {
     this.emitter.emit('error', {
       service: this.name,
       data,
@@ -46,10 +55,10 @@ class BigQuery {
   /**
    * Initialize the config for connecting to google apis
    */
-  init() {
+  init(): Promise<BigQuery> {
     this.log('Using config', {
       projectId: this.config.projectId,
-      email: this.config.credentials ? this.config.credentials.client_email : 'n/a',
+      email: this.config.credentials ? (this.config.credentials as CredentialBody).client_email : 'n/a',
       method: this.config.credentials ? 'PrivateKey' : 'KeyFile',
     });
     const client = new BQ(this.config);
@@ -68,7 +77,7 @@ class BigQuery {
    *
    * @return {Object} the dataset
    */
-  createDataSet(datasetName) {
+  createDataSet(datasetName: string): Promise<Dataset> {
     this.log(`Creating dataset ${datasetName}`);
     const dataset = this.client.dataset(datasetName);
     return dataset.exists().then(result => {
@@ -97,7 +106,7 @@ class BigQuery {
    * @return {Object} the dataset object
    * @throws {ReferenceError} dataset not found
    */
-  getDataset(datasetName) {
+  getDataset(datasetName: string): Dataset {
     const dataset = this.datasets[datasetName];
     if (!dataset) {
       throw new ReferenceError(`Dataset "${datasetName}" not found`);
@@ -116,7 +125,7 @@ class BigQuery {
    *
    * @return {boolean}
    */
-  createTable(datasetName, tableName, schema = null) {
+  createTable(datasetName: string, tableName: string, schema: Record<string, unknown> = null): Promise<Table> {
     this.log(`Creating table ${tableName} in ${datasetName}`);
     // check if table exists
     const dataset = this.getDataset(datasetName);
@@ -128,7 +137,7 @@ class BigQuery {
         throw new ReferenceError(`"${datasetName}.${tableName}" does not exists and no schema was given`);
       }
       if (exists === false && schema) {
-        const options = { schema };
+        const options: CreateOptions = { schema };
         return table.create(options).then(() => {
           this.success(`Table "${datasetName}.${tableName}" created`);
           return true;
@@ -152,7 +161,7 @@ class BigQuery {
    * @return {Object} the table object
    * @throws {RefrenceError} table not found
    */
-  getTable(datasetName, tableName) {
+  getTable(datasetName: string, tableName: string): Table {
     const table = this.tables[`${datasetName}.${tableName}`];
     if (!table) {
       throw new ReferenceError(`Table "<${tableName}>" not found in "<${datasetName}>"`);
@@ -170,7 +179,7 @@ class BigQuery {
    *
    * @return {boolean}
    */
-  insert(rows, datasetName, tableName) {
+  insert(rows: Record<string, unknown>, datasetName: string, tableName: string): Promise<InsertRowsResponse> {
     // check if tableName valid
     const table = this.getTable(datasetName, tableName);
     // Insert into table
@@ -193,24 +202,27 @@ class BigQuery {
    *
    * @return {Array} rows
    */
-  query(rawQuery, useLegacySql = false, maximumBillingTier = 3) {
-    const options = {
+  async query<T>(rawQuery: string, useLegacySql = false, maximumBillingTier = 3): Promise<T[]> {
+    const options: Query = {
       query: rawQuery,
       useLegacySql,
       maximumBillingTier,
     };
-    return this.client.query(options).then(result => {
-      const rows = result[0];
-      if (result.errors) {
-        throw new Error(result.message);
-      } else {
-        this.log(`Query Successful: ${rawQuery}`);
-        return rows;
-      }
-    }).catch((e) => {
-      console.log(e); // eslint-disable-line
-      throw new Error(e.message);
-    });
+    let [job] = await this.client.createQueryJob(options);
+    const results = await job.getQueryResults()
+      .catch((e) => {
+        this.error(e); // eslint-disable-line
+        throw new Error(e.message);
+      });
+    const [rows, _, response] = results;
+    if (Array.isArray(response.errors)) {
+      throw new Error(response.errors.map(err => err.message).join(";"));
+    }
+    if (!response.jobComplete) {
+      throw new Error('Job not complete: Might need to implement pagination');
+    }
+    this.log(`Query Successful: ${rawQuery}`);
+    return rows;
   }
 
 
@@ -224,7 +236,7 @@ class BigQuery {
    * @return {ReadStream}
    */
   queryStream(query, useLegacySql = false, maximumBillingTier = 3) {
-    const options = {
+    const options: Query = {
       query,
       useLegacySql,
       maximumBillingTier,
@@ -242,11 +254,11 @@ class BigQuery {
   *
   * @return {boolean}
   */
-  updateAvailable(tableName, datasetName) {
+  updateAvailable(tableName: string, datasetName: string) {
     const table = this.getTable(datasetName, tableName);
     // check if table object has streamingBuffer section
     return table.getMetadata().then(result => {
-      const metadata = result[0];
+      const metadata: Metadata = result[0];
       if (metadata.streamingBuffer == null) {
         return true;
       }
@@ -255,4 +267,4 @@ class BigQuery {
   }
 }
 
-module.exports = BigQuery;
+export = BigQuery;
