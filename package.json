@@ -2,7 +2,7 @@
   "name": "@akshendra/bigquery",
   "version": "0.0.5",
   "description": "A wrapper around gcloud bigquery",
-  "main": "index.js",
+  "main": "lib/index.js",
   "scripts": {
     "compile": "npx tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
